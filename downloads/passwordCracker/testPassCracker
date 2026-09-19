@@ -1,0 +1,158 @@
+import tkinter as tk
+from tkinter import PhotoImage, Canvas, Frame, font as tkFont, messagebox
+import string
+from random import sample
+from PIL import Image, ImageTk
+import threading
+import time
+
+# Global variable to control the password cracking thread
+stop_cracking = False
+
+def check_password_strength(password):
+    length = len(password)
+    has_letters = any(char.isalpha() for char in password)
+    has_digits = any(char.isdigit() for char in password)
+    has_symbols = any(char in string.punctuation for char in password)
+    num_types = sum([has_letters, has_digits, has_symbols])
+
+    if length < 8 and num_types == 1:
+        return "Weak: Minimum 8 characters with mixed types."
+    elif 8 <= length <= 10 and num_types == 2:
+        return "Intermediate: Meets length; contains two character types."
+    elif length > 10 and num_types == 3:
+        return "Strong: Includes letters, numbers, and symbols."
+    else:
+        return "Weak: Fails to meet strength criteria."
+
+def display_results(pw, strength, attempts):
+    output_label.config(text=f"Password: {pw} | Strength: {strength} | Attempts: {attempts}")
+
+def clear_output():
+    output_label.config(text="")
+
+def crack_password():
+    global stop_cracking
+    stop_cracking = False
+    clear_output()
+    status_label.config(text="Cracking Password ----- Please Wait")
+    thread = threading.Thread(target=crack_password_thread)
+    thread.start()
+
+def crack_password_thread():
+    global stop_cracking
+    u_pwd = password_entry.get()
+    pwd_chars = ""
+    if any(char.isalpha() for char in u_pwd):
+        pwd_chars += string.ascii_letters
+    if any(char.isdigit() for char in u_pwd):
+        pwd_chars += string.digits
+    if any(char in string.punctuation for char in u_pwd):
+        pwd_chars += string.punctuation
+
+    used_passwords = set()
+    attempts = 0
+    pw = ""
+
+    while pw != u_pwd and not stop_cracking:
+        pw = ''.join(sample(pwd_chars, len(u_pwd)))
+        if pw not in used_passwords:
+            used_passwords.add(pw)
+            attempts += 1
+
+    if not stop_cracking:
+        password_strength = check_password_strength(pw)
+        display_results(pw, password_strength, attempts)
+        status_label.config(text="")
+    else:
+        status_label.config(text="Password cracking stopped.")
+
+def stop_cracking_process():
+    global stop_cracking
+    stop_cracking = True
+
+def update_font_size(event=None):
+    new_size = max(8, min(20, app.winfo_width() // 50))
+    new_font = ("Helvetica", new_size)
+    for widget in app.winfo_children():
+        if isinstance(widget, tk.Entry) or isinstance(widget, tk.Button) or isinstance(widget, tk.Label):
+            widget.config(font=new_font)
+
+def convert_to_icon(image_path, icon_path):
+    image = Image.open(image_path)
+    image.save(icon_path, format='ICO', sizes=[(32, 32)])
+
+def set_background_image(window, image_path):
+    img = Image.open(image_path)
+    img = img.resize((window.winfo_width(), window.winfo_height()), Image.LANCZOS)
+    photo = ImageTk.PhotoImage(img)
+    canvas = Canvas(window, width=window.winfo_width(), height=window.winfo_height(), bg='#000000', highlightthickness=0)
+    canvas.create_image(0, 0, anchor='nw', image=photo)
+    canvas.image = photo
+    canvas.place(relx=0, rely=0)
+
+def start_app():
+    welcome_frame.grid_forget()
+    output_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
+    clear_output()
+
+def return_to_welcome():
+    output_frame.grid_forget()
+    stop_cracking_process()
+    clear_output()
+    welcome_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+
+def quit_app():
+    global stop_cracking
+    stop_cracking = True
+    time.sleep(0.1)  # Give some time for the thread to gracefully terminate
+    app.quit()
+
+def on_close():
+    quit_app()
+
+app = tk.Tk()
+app.title("Password Cracker")
+app.geometry("800x600")
+app.configure(bg='#000000')
+app.resizable(False, False)
+app.iconbitmap("./w.ico")
+set_background_image(app, "./w.png")
+
+output_frame = Frame(app, bg='#000000')
+welcome_frame = Frame(app, bg='#000000')
+
+welcome_label = tk.Label(welcome_frame, text="Welcome to Password Cracker", bg='#000000', fg='white', font=("Helvetica", 20))
+welcome_label.pack(fill='x', pady=10)
+
+start_button = tk.Button(welcome_frame, text="Start", command=start_app, bg='#8B0000', fg='white', font=("Helvetica", 12))
+start_button.pack(fill='x', pady=10)
+
+quit_button = tk.Button(welcome_frame, text="Quit", command=quit_app, bg='#8B0000', fg='white', font=("Helvetica", 12))
+quit_button.pack(fill='x', pady=10)
+
+password_entry = tk.Entry(output_frame, font=("Helvetica", 12))
+password_entry.pack(fill='x', expand=True)
+
+crack_button = tk.Button(output_frame, text="Crack Password", command=crack_password, bg='#8B0000', fg='white', font=("Helvetica", 12))
+crack_button.pack(fill='x', pady=10)
+
+status_label = tk.Label(output_frame, text="", bg='#000000', fg='red', font=("Helvetica", 12))
+status_label.pack(fill='x')
+
+output_label = tk.Label(output_frame, text="", bg='#000000', fg='red', font=("Helvetica", 12))
+output_label.pack(fill='x', pady=10)
+
+return_button = tk.Button(output_frame, text="Return to Welcome", command=return_to_welcome, bg='#8B0000', fg='white', font=("Helvetica", 12))
+return_button.pack(fill='x', pady=10)
+
+app.columnconfigure(0, weight=1)
+app.rowconfigure(0, weight=1)
+app.bind("<Configure>", update_font_size)
+
+welcome_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+
+# Bind the on_close function to the window closing event
+app.protocol("WM_DELETE_WINDOW", on_close)
+
+app.mainloop()
